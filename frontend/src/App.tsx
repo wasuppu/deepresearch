@@ -23,16 +23,23 @@ type ResearchBriefResponse = {
   brief: string;
 };
 
+type SearchPlanResponse = {
+  queries: string[];
+};
+
 function App() {
   const [topic, setTopic] = useState("");
   const [health, setHealth] = useState<HealthState>({ status: "idle" });
   const [clarifyingQuestion, setClarifyingQuestion] = useState("");
   const [clarifyingAnswer, setClarifyingAnswer] = useState("");
   const [researchBrief, setResearchBrief] = useState("");
+  const [searchQueries, setSearchQueries] = useState<string[]>([]);
   const [questionStatus, setQuestionStatus] = useState<"idle" | "loading" | "error">("idle");
   const [questionError, setQuestionError] = useState("");
   const [briefStatus, setBriefStatus] = useState<"idle" | "loading" | "error">("idle");
   const [briefError, setBriefError] = useState("");
+  const [searchPlanStatus, setSearchPlanStatus] = useState<"idle" | "loading" | "error">("idle");
+  const [searchPlanError, setSearchPlanError] = useState("");
 
   async function checkHealth() {
     setHealth({ status: "loading" });
@@ -71,6 +78,8 @@ function App() {
     setClarifyingAnswer("");
     setResearchBrief("");
     setBriefError("");
+    setSearchQueries([]);
+    setSearchPlanError("");
 
     try {
       const response = await fetch(`${apiBaseUrl}/research/clarifying-question`, {
@@ -114,6 +123,8 @@ function App() {
     setBriefStatus("loading");
     setBriefError("");
     setResearchBrief("");
+    setSearchQueries([]);
+    setSearchPlanError("");
 
     try {
       const response = await fetch(`${apiBaseUrl}/research/brief`, {
@@ -138,6 +149,41 @@ function App() {
       const message = error instanceof Error ? error.message : "研究 brief 生成失败。";
       setBriefStatus("error");
       setBriefError(message);
+    }
+  }
+
+  async function createSearchPlan() {
+    const normalizedBrief = researchBrief.trim();
+
+    if (!normalizedBrief) {
+      setSearchPlanStatus("error");
+      setSearchPlanError("请先生成研究 brief。");
+      return;
+    }
+
+    setSearchPlanStatus("loading");
+    setSearchPlanError("");
+    setSearchQueries([]);
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/research/search-plan`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ brief: normalizedBrief }),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null);
+        throw new Error(errorBody?.detail ?? `HTTP ${response.status}`);
+      }
+
+      const data = (await response.json()) as SearchPlanResponse;
+      setSearchQueries(data.queries);
+      setSearchPlanStatus("idle");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "检索计划生成失败。";
+      setSearchPlanStatus("error");
+      setSearchPlanError(message);
     }
   }
 
@@ -213,9 +259,33 @@ function App() {
                 <>
                   <h2>研究 brief</h2>
                   <p>{researchBrief}</p>
+                  <button
+                    className="secondary-action"
+                    type="button"
+                    disabled={searchPlanStatus === "loading"}
+                    onClick={createSearchPlan}
+                  >
+                    <span>{searchPlanStatus === "loading" ? "正在生成检索问题" : "生成检索问题"}</span>
+                  </button>
                 </>
               )}
               {briefError && <p className="error-text">{briefError}</p>}
+            </section>
+          )}
+
+          {(searchQueries.length > 0 || searchPlanError) && (
+            <section className="search-plan-result" aria-label="检索问题">
+              {searchQueries.length > 0 && (
+                <>
+                  <h2>检索问题</h2>
+                  <ol>
+                    {searchQueries.map((query) => (
+                      <li key={query}>{query}</li>
+                    ))}
+                  </ol>
+                </>
+              )}
+              {searchPlanError && <p className="error-text">{searchPlanError}</p>}
             </section>
           )}
         </section>

@@ -160,7 +160,8 @@ textarea:focus {
 }
 
 .question-result,
-.brief-result {
+.brief-result,
+.search-plan-result {
   display: grid;
   gap: 12px;
   padding: 14px;
@@ -174,8 +175,14 @@ textarea:focus {
   background: #f2f8fb;
 }
 
+.search-plan-result {
+  border-color: rgba(83, 100, 90, 0.22);
+  background: #fbfcfa;
+}
+
 .question-result h2,
-.brief-result h2 {
+.brief-result h2,
+.search-plan-result h2 {
   color: #1d6b4f;
   font-size: 0.92rem;
 }
@@ -188,6 +195,16 @@ textarea:focus {
 .brief-result p {
   line-height: 1.6;
   white-space: pre-wrap;
+}
+
+.search-plan-result ol {
+  margin: 0;
+  padding-left: 22px;
+}
+
+.search-plan-result li {
+  margin: 8px 0;
+  line-height: 1.5;
 }
 
 .error-text {

@@ -33,3 +33,11 @@ class ResearchBriefRequest(BaseModel):
 
 class ResearchBriefResponse(BaseModel):
     brief: str
+
+
+class SearchPlanRequest(BaseModel):
+    brief: str
+
+
+class SearchPlanResponse(BaseModel):
+    queries: list[str]

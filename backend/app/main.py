@@ -5,6 +5,7 @@ from app.clarifying_question import clarifying_question_graph
 from app.model import ModelClientError
 from app.llm_client import model_probe_graph
 from app.research_brief import research_brief_graph
+from app.search_plan import search_plan_graph
 from app.schemas import (
     ClarifyingQuestionRequest,
     ClarifyingQuestionResponse,
@@ -13,6 +14,8 @@ from app.schemas import (
     ModelProbeResponse,
     ResearchBriefRequest,
     ResearchBriefResponse,
+    SearchPlanRequest,
+    SearchPlanResponse,
 )
 from app.settings import settings
 
@@ -100,3 +103,20 @@ async def create_research_brief(request: ResearchBriefRequest) -> ResearchBriefR
         raise HTTPException(status_code=502, detail=f"研究 brief 生成失败：{error}") from error
 
     return ResearchBriefResponse(brief=result["brief"])
+
+
+@app.post("/research/search-plan", response_model=SearchPlanResponse)
+async def create_search_plan(request: SearchPlanRequest) -> SearchPlanResponse:
+    if not request.brief.strip():
+        raise HTTPException(status_code=400, detail="研究 brief 不能为空。")
+
+    try:
+        result = await search_plan_graph.ainvoke(
+            {"brief": request.brief.strip(), "queries": []}
+        )
+    except ModelClientError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"检索计划生成失败：{error}") from error
+
+    return SearchPlanResponse(queries=result["queries"])
