@@ -1,7 +1,7 @@
 import { Activity, RefreshCcw, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8011";
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
 type HealthResponse = {
   service: string;
@@ -15,9 +15,16 @@ type HealthState =
   | { status: "online"; data: HealthResponse }
   | { status: "offline"; message: string };
 
+type ClarifyingQuestionResponse = {
+  question: string;
+};
+
 function App() {
   const [topic, setTopic] = useState("");
   const [health, setHealth] = useState<HealthState>({ status: "idle" });
+  const [clarifyingQuestion, setClarifyingQuestion] = useState("");
+  const [questionStatus, setQuestionStatus] = useState<"idle" | "loading" | "error">("idle");
+  const [questionError, setQuestionError] = useState("");
 
   async function checkHealth() {
     setHealth({ status: "loading" });
@@ -40,6 +47,41 @@ function App() {
   useEffect(() => {
     void checkHealth();
   }, []);
+
+  async function createClarifyingQuestion() {
+    const normalizedTopic = topic.trim();
+
+    if (!normalizedTopic) {
+      setQuestionStatus("error");
+      setQuestionError("请先输入研究主题。");
+      return;
+    }
+
+    setQuestionStatus("loading");
+    setQuestionError("");
+    setClarifyingQuestion("");
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/research/clarifying-question`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ topic: normalizedTopic }),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null);
+        throw new Error(errorBody?.detail ?? `HTTP ${response.status}`);
+      }
+
+      const data = (await response.json()) as ClarifyingQuestionResponse;
+      setClarifyingQuestion(data.question);
+      setQuestionStatus("idle");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "澄清问题生成失败。";
+      setQuestionStatus("error");
+      setQuestionError(message);
+    }
+  }
 
   return (
     <main className="app-shell">
@@ -67,10 +109,27 @@ function App() {
             />
           </div>
 
-          <button className="primary-action" type="button" disabled>
+          <button
+            className="primary-action"
+            type="button"
+            disabled={questionStatus === "loading"}
+            onClick={createClarifyingQuestion}
+          >
             <Search size={18} aria-hidden="true" />
-            <span>下一步接入研究流程</span>
+            <span>{questionStatus === "loading" ? "正在生成追问" : "生成澄清问题"}</span>
           </button>
+
+          {(clarifyingQuestion || questionError) && (
+            <section className="question-result" aria-label="澄清问题">
+              {clarifyingQuestion && (
+                <>
+                  <h2>需要先确认的问题</h2>
+                  <p>{clarifyingQuestion}</p>
+                </>
+              )}
+              {questionError && <p className="error-text">{questionError}</p>}
+            </section>
+          )}
         </section>
 
         <section className="status-section" aria-label="服务状态">

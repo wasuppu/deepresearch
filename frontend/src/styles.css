@@ -144,6 +144,28 @@ textarea:focus {
   opacity: 0.58;
 }
 
+.question-result {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid rgba(29, 107, 79, 0.18);
+  border-radius: 8px;
+  background: #f4fbf7;
+}
+
+.question-result h2 {
+  color: #1d6b4f;
+  font-size: 0.92rem;
+}
+
+.question-result p {
+  line-height: 1.6;
+}
+
+.error-text {
+  color: #9f2d20;
+}
+
 .status-section {
   display: grid;
   gap: 14px;

@@ -15,3 +15,11 @@ class ModelProbeRequest(BaseModel):
 class ModelProbeResponse(BaseModel):
     model: str
     content: str
+
+
+class ClarifyingQuestionRequest(BaseModel):
+    topic: str
+
+
+class ClarifyingQuestionResponse(BaseModel):
+    question: str
