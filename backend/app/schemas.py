@@ -23,3 +23,13 @@ class ClarifyingQuestionRequest(BaseModel):
 
 class ClarifyingQuestionResponse(BaseModel):
     question: str
+
+
+class ResearchBriefRequest(BaseModel):
+    topic: str
+    clarifying_question: str
+    clarifying_answer: str
+
+
+class ResearchBriefResponse(BaseModel):
+    brief: str

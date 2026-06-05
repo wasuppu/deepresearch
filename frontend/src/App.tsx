@@ -19,12 +19,20 @@ type ClarifyingQuestionResponse = {
   question: string;
 };
 
+type ResearchBriefResponse = {
+  brief: string;
+};
+
 function App() {
   const [topic, setTopic] = useState("");
   const [health, setHealth] = useState<HealthState>({ status: "idle" });
   const [clarifyingQuestion, setClarifyingQuestion] = useState("");
+  const [clarifyingAnswer, setClarifyingAnswer] = useState("");
+  const [researchBrief, setResearchBrief] = useState("");
   const [questionStatus, setQuestionStatus] = useState<"idle" | "loading" | "error">("idle");
   const [questionError, setQuestionError] = useState("");
+  const [briefStatus, setBriefStatus] = useState<"idle" | "loading" | "error">("idle");
+  const [briefError, setBriefError] = useState("");
 
   async function checkHealth() {
     setHealth({ status: "loading" });
@@ -60,6 +68,9 @@ function App() {
     setQuestionStatus("loading");
     setQuestionError("");
     setClarifyingQuestion("");
+    setClarifyingAnswer("");
+    setResearchBrief("");
+    setBriefError("");
 
     try {
       const response = await fetch(`${apiBaseUrl}/research/clarifying-question`, {
@@ -80,6 +91,53 @@ function App() {
       const message = error instanceof Error ? error.message : "澄清问题生成失败。";
       setQuestionStatus("error");
       setQuestionError(message);
+    }
+  }
+
+  async function createResearchBrief() {
+    const normalizedTopic = topic.trim();
+    const normalizedQuestion = clarifyingQuestion.trim();
+    const normalizedAnswer = clarifyingAnswer.trim();
+
+    if (!normalizedTopic || !normalizedQuestion) {
+      setBriefStatus("error");
+      setBriefError("请先生成澄清问题。");
+      return;
+    }
+
+    if (!normalizedAnswer) {
+      setBriefStatus("error");
+      setBriefError("请先回答澄清问题。");
+      return;
+    }
+
+    setBriefStatus("loading");
+    setBriefError("");
+    setResearchBrief("");
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/research/brief`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          topic: normalizedTopic,
+          clarifying_question: normalizedQuestion,
+          clarifying_answer: normalizedAnswer,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null);
+        throw new Error(errorBody?.detail ?? `HTTP ${response.status}`);
+      }
+
+      const data = (await response.json()) as ResearchBriefResponse;
+      setResearchBrief(data.brief);
+      setBriefStatus("idle");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "研究 brief 生成失败。";
+      setBriefStatus("error");
+      setBriefError(message);
     }
   }
 
@@ -125,9 +183,39 @@ function App() {
                 <>
                   <h2>需要先确认的问题</h2>
                   <p>{clarifyingQuestion}</p>
+                  <div className="field-group">
+                    <label htmlFor="clarifying-answer">你的回答</label>
+                    <textarea
+                      id="clarifying-answer"
+                      value={clarifyingAnswer}
+                      onChange={(event) => setClarifyingAnswer(event.target.value)}
+                      placeholder="例如：重点关注中国市场，面向投资人，时间范围为 2024-2026 年。"
+                      rows={4}
+                    />
+                  </div>
+                  <button
+                    className="secondary-action"
+                    type="button"
+                    disabled={briefStatus === "loading"}
+                    onClick={createResearchBrief}
+                  >
+                    <span>{briefStatus === "loading" ? "正在生成 brief" : "生成研究 brief"}</span>
+                  </button>
                 </>
               )}
               {questionError && <p className="error-text">{questionError}</p>}
+            </section>
+          )}
+
+          {(researchBrief || briefError) && (
+            <section className="brief-result" aria-label="研究 brief">
+              {researchBrief && (
+                <>
+                  <h2>研究 brief</h2>
+                  <p>{researchBrief}</p>
+                </>
+              )}
+              {briefError && <p className="error-text">{briefError}</p>}
             </section>
           )}
         </section>
