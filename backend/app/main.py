@@ -5,6 +5,8 @@ from app.clarifying_question import clarifying_question_graph
 from app.model import ModelClientError
 from app.llm_client import model_probe_graph
 from app.research_brief import research_brief_graph
+from app.research_findings import research_findings_graph
+from app.research_sources import SearchProviderError, research_sources_graph
 from app.search_plan import search_plan_graph
 from app.schemas import (
     ClarifyingQuestionRequest,
@@ -14,6 +16,10 @@ from app.schemas import (
     ModelProbeResponse,
     ResearchBriefRequest,
     ResearchBriefResponse,
+    ResearchFindingsRequest,
+    ResearchFindingsResponse,
+    ResearchSourcesRequest,
+    ResearchSourcesResponse,
     SearchPlanRequest,
     SearchPlanResponse,
 )
@@ -67,7 +73,7 @@ async def create_clarifying_question(
 
     try:
         result = await clarifying_question_graph.ainvoke(
-            {"topic": request.topic.strip(), "question": ""}
+            {"topic": request.topic.strip(), "questions": []}
         )
     except ModelClientError as error:
         raise HTTPException(status_code=502, detail=str(error)) from error
@@ -76,24 +82,25 @@ async def create_clarifying_question(
             status_code=502, detail=f"澄清问题生成失败：{error}"
         ) from error
 
-    return ClarifyingQuestionResponse(question=result["question"])
+    return ClarifyingQuestionResponse(questions=result["questions"])
 
 
 @app.post("/research/brief", response_model=ResearchBriefResponse)
 async def create_research_brief(request: ResearchBriefRequest) -> ResearchBriefResponse:
     if not request.topic.strip():
         raise HTTPException(status_code=400, detail="研究主题不能为空。")
-    if not request.clarifying_question.strip():
+    clarifying_questions = [question.strip() for question in request.clarifying_questions if question.strip()]
+    if not clarifying_questions:
         raise HTTPException(status_code=400, detail="澄清问题不能为空。")
-    if not request.clarifying_answer.strip():
+    if not request.clarification.strip():
         raise HTTPException(status_code=400, detail="澄清回答不能为空。")
 
     try:
         result = await research_brief_graph.ainvoke(
             {
                 "topic": request.topic.strip(),
-                "clarifying_question": request.clarifying_question.strip(),
-                "clarifying_answer": request.clarifying_answer.strip(),
+                "clarifying_questions": clarifying_questions,
+                "clarification": request.clarification.strip(),
                 "brief": "",
             }
         )
@@ -120,3 +127,37 @@ async def create_search_plan(request: SearchPlanRequest) -> SearchPlanResponse:
         raise HTTPException(status_code=502, detail=f"检索计划生成失败：{error}") from error
 
     return SearchPlanResponse(queries=result["queries"])
+
+
+@app.post("/research/sources", response_model=ResearchSourcesResponse)
+async def fetch_research_sources(request: ResearchSourcesRequest) -> ResearchSourcesResponse:
+    queries = [query.strip() for query in request.queries if query.strip()]
+    if not queries:
+        raise HTTPException(status_code=400, detail="检索问题不能为空。")
+
+    try:
+        result = await research_sources_graph.ainvoke({"queries": queries, "sources": []})
+    except SearchProviderError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Research Sources 获取失败：{error}") from error
+
+    return ResearchSourcesResponse(sources=result["sources"])
+
+
+@app.post("/research/findings", response_model=ResearchFindingsResponse)
+async def create_research_findings(request: ResearchFindingsRequest) -> ResearchFindingsResponse:
+    queries = [query.strip() for query in request.queries if query.strip()]
+    if not queries:
+        raise HTTPException(status_code=400, detail="检索问题不能为空。")
+
+    try:
+        result = await research_findings_graph.ainvoke({"queries": queries, "findings": []})
+    except SearchProviderError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
+    except ModelClientError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Research Findings 生成失败：{error}") from error
+
+    return ResearchFindingsResponse(findings=result["findings"])

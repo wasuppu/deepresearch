@@ -4,35 +4,26 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.graph import END, START, StateGraph
 
 from app.model import init_configured_chat_model
+from app.prompts import CLARIFYING_QUESTIONS_SYSTEM_PROMPT, CLARIFYING_QUESTIONS_USER_PROMPT
+from app.text_processing import parse_numbered_lines
 
 
 class ClarifyingQuestionState(TypedDict):
     topic: str
-    question: str
+    questions: list[str]
 
 
 async def generate_question(state: ClarifyingQuestionState) -> ClarifyingQuestionState:
     model = init_configured_chat_model(temperature=0.1)
     response = await model.ainvoke(
         [
-            SystemMessage(
-                content=(
-                    "你是一个中文 Deep Research 助手，擅长在正式研究前收窄问题范围。"
-                    "你必须只输出一个中文澄清问题，不要输出 JSON，不要解释，不要开始研究。"
-                )
-            ),
-            HumanMessage(
-                content=(
-                    "请基于下面的研究主题，提出一个最有价值的澄清问题。"
-                    "这个问题应该帮助明确研究范围、对象、时间边界、地区边界或报告用途。\n\n"
-                    f"研究主题：{state['topic']}"
-                )
-            ),
+            SystemMessage(content=CLARIFYING_QUESTIONS_SYSTEM_PROMPT),
+            HumanMessage(content=CLARIFYING_QUESTIONS_USER_PROMPT.format(topic=state["topic"])),
         ]
     )
-    question = str(response.content).strip()
+    questions = parse_numbered_lines(str(response.content), limit=4)
 
-    return {"topic": state["topic"], "question": question}
+    return {"topic": state["topic"], "questions": questions}
 
 
 builder = StateGraph(ClarifyingQuestionState)

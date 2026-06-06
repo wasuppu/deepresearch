@@ -22,13 +22,13 @@ class ClarifyingQuestionRequest(BaseModel):
 
 
 class ClarifyingQuestionResponse(BaseModel):
-    question: str
+    questions: list[str]
 
 
 class ResearchBriefRequest(BaseModel):
     topic: str
-    clarifying_question: str
-    clarifying_answer: str
+    clarifying_questions: list[str]
+    clarification: str
 
 
 class ResearchBriefResponse(BaseModel):
@@ -41,3 +41,32 @@ class SearchPlanRequest(BaseModel):
 
 class SearchPlanResponse(BaseModel):
     queries: list[str]
+
+
+class ResearchSourcesRequest(BaseModel):
+    queries: list[str]
+
+
+class ResearchSource(BaseModel):
+    title: str
+    url: str
+    content: str
+    query: str
+
+
+class ResearchSourcesResponse(BaseModel):
+    sources: list[ResearchSource]
+
+
+class ResearchFindingsRequest(BaseModel):
+    queries: list[str]
+
+
+class ResearchFinding(BaseModel):
+    query: str
+    finding: str
+    sources: list[ResearchSource]
+
+
+class ResearchFindingsResponse(BaseModel):
+    findings: list[ResearchFinding]

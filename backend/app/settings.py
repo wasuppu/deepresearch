@@ -14,6 +14,8 @@ class Settings:
     llm_api_key: str = getenv("LLM_API_KEY", "")
     llm_base_url: str = getenv("LLM_BASE_URL", "https://api.deepseek.com")
     llm_model: str = getenv("LLM_MODEL", "deepseek-v4-flash")
+    search_provider: str = getenv("SEARCH_PROVIDER", "tavily")
+    tavily_api_key: str = getenv("TAVILY_API_KEY", "")
 
 
 settings = Settings()
