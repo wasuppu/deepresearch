@@ -20,6 +20,12 @@ import {
   toApiRunConfig,
   type RunConfiguration,
 } from "./runConfig";
+import {
+  loadResearchWorkspaceState,
+  researchWorkspaceStateVersion,
+  resetResearchWorkspaceState,
+  saveResearchWorkspaceState,
+} from "./workspaceState";
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
@@ -70,19 +76,26 @@ type ResearchReportResponse = {
 };
 
 function App() {
-  const [topic, setTopic] = useState("");
+  const [initialWorkspace] = useState(() => loadResearchWorkspaceState());
+  const [topic, setTopic] = useState(initialWorkspace.topic);
   const [runConfig, setRunConfig] = useState<RunConfiguration>(() => loadRunConfig());
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [health, setHealth] = useState<HealthState>({ status: "idle" });
-  const [clarifyingQuestions, setClarifyingQuestions] = useState<string[]>([]);
-  const [clarification, setClarification] = useState("");
-  const [researchBrief, setResearchBrief] = useState("");
+  const [clarifyingQuestions, setClarifyingQuestions] = useState<string[]>(
+    initialWorkspace.clarifyingQuestions,
+  );
+  const [clarification, setClarification] = useState(initialWorkspace.clarification);
+  const [researchBrief, setResearchBrief] = useState(initialWorkspace.researchBrief);
   const [isEditingBrief, setIsEditingBrief] = useState(false);
-  const [searchQueries, setSearchQueries] = useState<string[]>([]);
+  const [searchQueries, setSearchQueries] = useState<string[]>(initialWorkspace.searchQueries);
   const [editingSearchQueryIndex, setEditingSearchQueryIndex] = useState<number | null>(null);
-  const [researchFindings, setResearchFindings] = useState<ResearchFinding[]>([]);
-  const [researchReport, setResearchReport] = useState("");
-  const [researchReportReferences, setResearchReportReferences] = useState<ResearchSource[]>([]);
+  const [researchFindings, setResearchFindings] = useState<ResearchFinding[]>(
+    initialWorkspace.researchFindings,
+  );
+  const [researchReport, setResearchReport] = useState(initialWorkspace.researchReport);
+  const [researchReportReferences, setResearchReportReferences] = useState<ResearchSource[]>(
+    initialWorkspace.researchReportReferences,
+  );
   const [questionStatus, setQuestionStatus] = useState<"idle" | "loading" | "error">("idle");
   const [questionError, setQuestionError] = useState("");
   const [briefStatus, setBriefStatus] = useState<"idle" | "loading" | "error">("idle");
@@ -124,6 +137,29 @@ function App() {
     saveRunConfig(runConfig);
     document.documentElement.dataset.density = runConfig.ui.density;
   }, [runConfig]);
+
+  useEffect(() => {
+    saveResearchWorkspaceState({
+      version: researchWorkspaceStateVersion,
+      topic,
+      clarifyingQuestions,
+      clarification,
+      researchBrief,
+      searchQueries,
+      researchFindings,
+      researchReport,
+      researchReportReferences,
+    });
+  }, [
+    topic,
+    clarifyingQuestions,
+    clarification,
+    researchBrief,
+    searchQueries,
+    researchFindings,
+    researchReport,
+    researchReportReferences,
+  ]);
 
   useEffect(() => {
     document.body.style.overflow = isSettingsOpen ? "hidden" : "";
@@ -184,6 +220,30 @@ function App() {
 
       return next;
     });
+  }
+
+  function restartResearchWorkspace() {
+    const fresh = resetResearchWorkspaceState();
+    setTopic(fresh.topic);
+    setClarifyingQuestions(fresh.clarifyingQuestions);
+    setClarification(fresh.clarification);
+    setResearchBrief(fresh.researchBrief);
+    setIsEditingBrief(false);
+    setSearchQueries(fresh.searchQueries);
+    setEditingSearchQueryIndex(null);
+    setResearchFindings(fresh.researchFindings);
+    setResearchReport(fresh.researchReport);
+    setResearchReportReferences(fresh.researchReportReferences);
+    setQuestionStatus("idle");
+    setQuestionError("");
+    setBriefStatus("idle");
+    setBriefError("");
+    setSearchPlanStatus("idle");
+    setSearchPlanError("");
+    setFindingsStatus("idle");
+    setFindingsError("");
+    setReportStatus("idle");
+    setReportError("");
   }
 
   async function createClarifyingQuestion() {
@@ -345,6 +405,7 @@ function App() {
     setFindingsError("");
     setResearchFindings([]);
     setResearchReport("");
+    setResearchReportReferences([]);
     setReportError("");
 
     try {
@@ -438,6 +499,7 @@ function App() {
     setEditingSearchQueryIndex(searchQueries.length);
     setSearchPlanError("");
     setResearchReport("");
+    setResearchReportReferences([]);
     setReportError("");
   }
 
@@ -500,6 +562,10 @@ function App() {
             <h1>研究工作台</h1>
           </div>
           <div className="topbar-actions">
+            <button className="icon-button" type="button" onClick={restartResearchWorkspace}>
+              <RotateCcw size={18} aria-hidden="true" />
+              <span>重新开始</span>
+            </button>
             <button className="icon-button" type="button" onClick={() => setIsSettingsOpen(true)}>
               <Settings2 size={18} aria-hidden="true" />
               <span>设置</span>

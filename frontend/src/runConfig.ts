@@ -117,8 +117,6 @@ export function loadRunConfig(): RunConfiguration {
       model: {
         ...defaultRunConfig.model,
         ...parsed.model,
-        baseUrl: "",
-        model: "",
       },
       search: {
         ...defaultRunConfig.search,
