@@ -45,6 +45,11 @@ type ResearchFindingsResponse = {
   findings: ResearchFinding[];
 };
 
+type ResearchReportResponse = {
+  report: string;
+  references: ResearchSource[];
+};
+
 function App() {
   const [topic, setTopic] = useState("");
   const [health, setHealth] = useState<HealthState>({ status: "idle" });
@@ -55,6 +60,8 @@ function App() {
   const [searchQueries, setSearchQueries] = useState<string[]>([]);
   const [editingSearchQueryIndex, setEditingSearchQueryIndex] = useState<number | null>(null);
   const [researchFindings, setResearchFindings] = useState<ResearchFinding[]>([]);
+  const [researchReport, setResearchReport] = useState("");
+  const [researchReportReferences, setResearchReportReferences] = useState<ResearchSource[]>([]);
   const [questionStatus, setQuestionStatus] = useState<"idle" | "loading" | "error">("idle");
   const [questionError, setQuestionError] = useState("");
   const [briefStatus, setBriefStatus] = useState<"idle" | "loading" | "error">("idle");
@@ -63,6 +70,8 @@ function App() {
   const [searchPlanError, setSearchPlanError] = useState("");
   const [findingsStatus, setFindingsStatus] = useState<"idle" | "loading" | "error">("idle");
   const [findingsError, setFindingsError] = useState("");
+  const [reportStatus, setReportStatus] = useState<"idle" | "loading" | "error">("idle");
+  const [reportError, setReportError] = useState("");
 
   const briefTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const searchQueryTextareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -110,6 +119,9 @@ function App() {
     setSearchPlanError("");
     setResearchFindings([]);
     setFindingsError("");
+    setResearchReport("");
+    setResearchReportReferences([]);
+    setReportError("");
 
     try {
       const response = await fetch(`${apiBaseUrl}/research/clarifying-question`, {
@@ -159,6 +171,9 @@ function App() {
     setSearchPlanError("");
     setResearchFindings([]);
     setFindingsError("");
+    setResearchReport("");
+    setResearchReportReferences([]);
+    setReportError("");
 
     try {
       const response = await fetch(`${apiBaseUrl}/research/brief`, {
@@ -202,6 +217,9 @@ function App() {
     setEditingSearchQueryIndex(null);
     setResearchFindings([]);
     setFindingsError("");
+    setResearchReport("");
+    setResearchReportReferences([]);
+    setReportError("");
 
     try {
       const response = await fetch(`${apiBaseUrl}/research/search-plan`, {
@@ -237,6 +255,8 @@ function App() {
     setFindingsStatus("loading");
     setFindingsError("");
     setResearchFindings([]);
+    setResearchReport("");
+    setReportError("");
 
     try {
       const response = await fetch(`${apiBaseUrl}/research/findings`, {
@@ -260,12 +280,58 @@ function App() {
     }
   }
 
+  async function createResearchReport() {
+    const normalizedBrief = researchBrief.trim();
+
+    if (!normalizedBrief) {
+      setReportStatus("error");
+      setReportError("请先生成研究简报。");
+      return;
+    }
+
+    if (researchFindings.length === 0) {
+      setReportStatus("error");
+      setReportError("请先整理研究发现。");
+      return;
+    }
+
+    setReportStatus("loading");
+    setReportError("");
+    setResearchReport("");
+    setResearchReportReferences([]);
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/research/report`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ brief: normalizedBrief, findings: researchFindings }),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null);
+        throw new Error(errorBody?.detail ?? `HTTP ${response.status}`);
+      }
+
+      const data = (await response.json()) as ResearchReportResponse;
+      setResearchReport(data.report);
+      setResearchReportReferences(data.references ?? []);
+      setReportStatus("idle");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "研究报告生成失败。";
+      setReportStatus("error");
+      setReportError(message);
+    }
+  }
+
   function updateSearchQuery(index: number, value: string) {
     setSearchQueries((current) =>
       current.map((query, queryIndex) => (queryIndex === index ? value : query)),
     );
     setResearchFindings([]);
     setFindingsError("");
+    setResearchReport("");
+    setResearchReportReferences([]);
+    setReportError("");
   }
 
   function addSearchQuery() {
@@ -278,6 +344,8 @@ function App() {
     setSearchQueries((current) => [...current, ""]);
     setEditingSearchQueryIndex(searchQueries.length);
     setSearchPlanError("");
+    setResearchReport("");
+    setReportError("");
   }
 
   function removeSearchQuery(index: number) {
@@ -305,6 +373,9 @@ function App() {
     });
     setResearchFindings([]);
     setFindingsError("");
+    setResearchReport("");
+    setResearchReportReferences([]);
+    setReportError("");
   }
 
   useLayoutEffect(() => {
@@ -553,9 +624,40 @@ function App() {
                       </article>
                     ))}
                   </div>
+                  <button
+                    className="secondary-action"
+                    type="button"
+                    disabled={reportStatus === "loading"}
+                    onClick={createResearchReport}
+                  >
+                    <span>{reportStatus === "loading" ? "正在生成研究报告" : "生成研究报告"}</span>
+                  </button>
                 </>
               )}
               {findingsError && <p className="error-text">{findingsError}</p>}
+            </section>
+          )}
+
+          {(researchReport || reportError) && (
+            <section className="report-result" aria-label="研究报告">
+              {researchReport && (
+                <>
+                  <h2>研究报告</h2>
+                  <div className="markdown-preview report-preview">
+                    <ReactMarkdown>{researchReport}</ReactMarkdown>
+                  </div>
+                  {researchReportReferences.length > 0 && (
+                    <div className="source-links">
+                      {researchReportReferences.map((source, index) => (
+                        <a key={source.url} href={source.url} target="_blank" rel="noreferrer">
+                          [{index + 1}] {source.title}
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+              {reportError && <p className="error-text">{reportError}</p>}
             </section>
           )}
 

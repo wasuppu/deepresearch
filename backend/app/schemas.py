@@ -70,3 +70,13 @@ class ResearchFinding(BaseModel):
 
 class ResearchFindingsResponse(BaseModel):
     findings: list[ResearchFinding]
+
+
+class ResearchReportRequest(BaseModel):
+    brief: str
+    findings: list[ResearchFinding]
+
+
+class ResearchReportResponse(BaseModel):
+    report: str
+    references: list[ResearchSource]

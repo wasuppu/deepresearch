@@ -6,6 +6,7 @@ from app.model import ModelClientError
 from app.llm_client import model_probe_graph
 from app.research_brief import research_brief_graph
 from app.research_findings import research_findings_graph
+from app.research_report import research_report_graph
 from app.research_sources import SearchProviderError, research_sources_graph
 from app.search_plan import search_plan_graph
 from app.schemas import (
@@ -18,6 +19,8 @@ from app.schemas import (
     ResearchBriefResponse,
     ResearchFindingsRequest,
     ResearchFindingsResponse,
+    ResearchReportRequest,
+    ResearchReportResponse,
     ResearchSourcesRequest,
     ResearchSourcesResponse,
     SearchPlanRequest,
@@ -161,3 +164,24 @@ async def create_research_findings(request: ResearchFindingsRequest) -> Research
         raise HTTPException(status_code=502, detail=f"Research Findings 生成失败：{error}") from error
 
     return ResearchFindingsResponse(findings=result["findings"])
+
+
+@app.post("/research/report", response_model=ResearchReportResponse)
+async def create_research_report(request: ResearchReportRequest) -> ResearchReportResponse:
+    if not request.brief.strip():
+        raise HTTPException(status_code=400, detail="研究 brief 不能为空。")
+
+    findings = [finding for finding in request.findings if finding.finding.strip()]
+    if not findings:
+        raise HTTPException(status_code=400, detail="研究发现不能为空。")
+
+    try:
+        result = await research_report_graph.ainvoke(
+            {"brief": request.brief.strip(), "findings": findings, "report": "", "references": []}
+        )
+    except ModelClientError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Research Report 生成失败：{error}") from error
+
+    return ResearchReportResponse(report=result["report"], references=result["references"])

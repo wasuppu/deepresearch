@@ -162,7 +162,8 @@ textarea:focus {
 .question-result,
 .brief-result,
 .search-plan-result,
-.findings-result {
+.findings-result,
+.report-result {
   display: grid;
   gap: 12px;
   padding: 14px;
@@ -186,10 +187,16 @@ textarea:focus {
   background: #ffffff;
 }
 
+.report-result {
+  border-color: rgba(36, 123, 160, 0.18);
+  background: #ffffff;
+}
+
 .question-result h2,
 .brief-result h2,
 .search-plan-result h2,
-.findings-result h2 {
+.findings-result h2,
+.report-result h2 {
   color: #1d6b4f;
   font-size: 0.92rem;
 }
@@ -369,6 +376,10 @@ textarea:focus {
   background: #eef7fb;
   font-size: 0.82rem;
   overflow-wrap: anywhere;
+}
+
+.report-preview {
+  padding-top: 2px;
 }
 
 .error-text {
