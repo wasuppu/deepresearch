@@ -1,10 +1,13 @@
 import {
   Activity,
   Check,
+  Download,
+  Library,
   PencilLine,
   Plus,
   RefreshCcw,
   RotateCcw,
+  Save,
   Search,
   Settings2,
   Trash2,
@@ -12,6 +15,14 @@ import {
 } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import {
+  createSavedResearchReport,
+  downloadMarkdownReport,
+  formatDateTime,
+  loadReportLibrary,
+  saveReportLibrary,
+  type SavedResearchReport,
+} from "./reportLibrary";
 import {
   cloneRunConfig,
   loadRunConfig,
@@ -106,6 +117,12 @@ function App() {
   const [findingsError, setFindingsError] = useState("");
   const [reportStatus, setReportStatus] = useState<"idle" | "loading" | "error">("idle");
   const [reportError, setReportError] = useState("");
+  const [reportLibrary, setReportLibrary] = useState<SavedResearchReport[]>(() =>
+    loadReportLibrary(),
+  );
+  const [isReportLibraryOpen, setIsReportLibraryOpen] = useState(false);
+  const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
+  const [reportLibraryNotice, setReportLibraryNotice] = useState("");
 
   const briefTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const searchQueryTextareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -139,6 +156,10 @@ function App() {
   }, [runConfig]);
 
   useEffect(() => {
+    saveReportLibrary(reportLibrary);
+  }, [reportLibrary]);
+
+  useEffect(() => {
     saveResearchWorkspaceState({
       version: researchWorkspaceStateVersion,
       topic,
@@ -162,12 +183,12 @@ function App() {
   ]);
 
   useEffect(() => {
-    document.body.style.overflow = isSettingsOpen ? "hidden" : "";
+    document.body.style.overflow = isSettingsOpen || isReportLibraryOpen ? "hidden" : "";
 
     return () => {
       document.body.style.overflow = "";
     };
-  }, [isSettingsOpen]);
+  }, [isSettingsOpen, isReportLibraryOpen]);
 
   function updateRunConfig(path: string, value: string | number) {
     setRunConfig((current) => {
@@ -244,6 +265,66 @@ function App() {
     setFindingsError("");
     setReportStatus("idle");
     setReportError("");
+    setReportLibraryNotice("");
+  }
+
+  function currentSavedReport(): SavedResearchReport {
+    return createSavedResearchReport({
+      topic,
+      brief: researchBrief,
+      findings: researchFindings,
+      report: researchReport,
+      references: researchReportReferences,
+    });
+  }
+
+  function downloadCurrentReport() {
+    if (!researchReport.trim()) {
+      return;
+    }
+
+    downloadMarkdownReport(currentSavedReport());
+  }
+
+  function saveCurrentReportToLibrary() {
+    if (!researchReport.trim()) {
+      return;
+    }
+
+    const savedReport = currentSavedReport();
+    setReportLibrary((current) => [savedReport, ...current]);
+    setSelectedReportId(savedReport.id);
+    setReportLibraryNotice("已保存到报告库。");
+  }
+
+  function loadSavedReport(report: SavedResearchReport) {
+    setTopic(report.topic);
+    setResearchBrief(report.brief);
+    setResearchFindings(report.findings);
+    setResearchReport(report.report);
+    setResearchReportReferences(report.references);
+    setClarifyingQuestions([]);
+    setClarification("");
+    setSearchQueries(report.findings.map((finding) => finding.query).filter(Boolean));
+    setEditingSearchQueryIndex(null);
+    setIsEditingBrief(false);
+    setQuestionStatus("idle");
+    setQuestionError("");
+    setBriefStatus("idle");
+    setBriefError("");
+    setSearchPlanStatus("idle");
+    setSearchPlanError("");
+    setFindingsStatus("idle");
+    setFindingsError("");
+    setReportStatus("idle");
+    setReportError("");
+    setIsReportLibraryOpen(false);
+    setReportLibraryNotice("已载入历史报告。");
+  }
+
+  function removeSavedReport(reportId: string) {
+    setReportLibrary((current) => current.filter((report) => report.id !== reportId));
+    setSelectedReportId((current) => (current === reportId ? null : current));
   }
 
   async function createClarifyingQuestion() {
@@ -270,6 +351,7 @@ function App() {
     setResearchReport("");
     setResearchReportReferences([]);
     setReportError("");
+    setReportLibraryNotice("");
 
     try {
       const response = await fetch(`${apiBaseUrl}/research/clarifying-question`, {
@@ -322,6 +404,7 @@ function App() {
     setResearchReport("");
     setResearchReportReferences([]);
     setReportError("");
+    setReportLibraryNotice("");
 
     try {
       const response = await fetch(`${apiBaseUrl}/research/brief`, {
@@ -369,6 +452,7 @@ function App() {
     setResearchReport("");
     setResearchReportReferences([]);
     setReportError("");
+    setReportLibraryNotice("");
 
     try {
       const response = await fetch(`${apiBaseUrl}/research/search-plan`, {
@@ -407,6 +491,7 @@ function App() {
     setResearchReport("");
     setResearchReportReferences([]);
     setReportError("");
+    setReportLibraryNotice("");
 
     try {
       const response = await fetch(`${apiBaseUrl}/research/findings`, {
@@ -449,6 +534,7 @@ function App() {
     setReportError("");
     setResearchReport("");
     setResearchReportReferences([]);
+    setReportLibraryNotice("");
 
     try {
       const response = await fetch(`${apiBaseUrl}/research/report`, {
@@ -486,6 +572,7 @@ function App() {
     setResearchReport("");
     setResearchReportReferences([]);
     setReportError("");
+    setReportLibraryNotice("");
   }
 
   function addSearchQuery() {
@@ -501,6 +588,7 @@ function App() {
     setResearchReport("");
     setResearchReportReferences([]);
     setReportError("");
+    setReportLibraryNotice("");
   }
 
   function removeSearchQuery(index: number) {
@@ -531,6 +619,7 @@ function App() {
     setResearchReport("");
     setResearchReportReferences([]);
     setReportError("");
+    setReportLibraryNotice("");
   }
 
   useLayoutEffect(() => {
@@ -553,6 +642,9 @@ function App() {
     textarea.style.height = `${textarea.scrollHeight}px`;
   }, [editingSearchQueryIndex, searchQueries]);
 
+  const selectedReport =
+    reportLibrary.find((report) => report.id === selectedReportId) ?? reportLibrary[0] ?? null;
+
   return (
     <main className="app-shell">
       <section className="workspace">
@@ -565,6 +657,10 @@ function App() {
             <button className="icon-button" type="button" onClick={restartResearchWorkspace}>
               <RotateCcw size={18} aria-hidden="true" />
               <span>重新开始</span>
+            </button>
+            <button className="icon-button" type="button" onClick={() => setIsReportLibraryOpen(true)}>
+              <Library size={18} aria-hidden="true" />
+              <span>报告库</span>
             </button>
             <button className="icon-button" type="button" onClick={() => setIsSettingsOpen(true)}>
               <Settings2 size={18} aria-hidden="true" />
@@ -808,6 +904,98 @@ function App() {
           </div>
         )}
 
+        {isReportLibraryOpen && (
+          <div className="settings-backdrop" onClick={() => setIsReportLibraryOpen(false)}>
+            <aside
+              className="library-drawer"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="library-title"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="settings-header">
+                <div>
+                  <p className="eyebrow">本地知识库</p>
+                  <h2 id="library-title">报告库</h2>
+                </div>
+                <button
+                  className="icon-only-button secondary-icon"
+                  type="button"
+                  onClick={() => setIsReportLibraryOpen(false)}
+                  aria-label="关闭报告库"
+                  title="关闭报告库"
+                >
+                  <X size={16} aria-hidden="true" />
+                </button>
+              </div>
+
+              {reportLibrary.length === 0 ? (
+                <div className="library-empty">
+                  <h3>暂无历史报告</h3>
+                  <p>生成研究报告后，可以在报告区保存到本地报告库。</p>
+                </div>
+              ) : (
+                <div className="library-body">
+                  <div className="library-list" aria-label="历史报告列表">
+                    {reportLibrary.map((report) => (
+                      <button
+                        className={`library-item${selectedReport?.id === report.id ? " active" : ""}`}
+                        type="button"
+                        key={report.id}
+                        onClick={() => setSelectedReportId(report.id)}
+                      >
+                        <span>{report.title}</span>
+                        <small>{formatDateTime(report.createdAt)}</small>
+                      </button>
+                    ))}
+                  </div>
+
+                  {selectedReport && (
+                    <article className="library-preview" aria-label="历史报告预览">
+                      <div className="module-header">
+                        <div>
+                          <h3>{selectedReport.title}</h3>
+                          <p>{formatDateTime(selectedReport.createdAt)}</p>
+                        </div>
+                        <button
+                          className="icon-only-button"
+                          type="button"
+                          onClick={() => removeSavedReport(selectedReport.id)}
+                          aria-label="删除历史报告"
+                          title="删除历史报告"
+                        >
+                          <Trash2 size={16} aria-hidden="true" />
+                        </button>
+                      </div>
+                      <div className="markdown-preview library-report-preview">
+                        <ReactMarkdown>{selectedReport.report}</ReactMarkdown>
+                      </div>
+                      <div className="action-row">
+                        <button
+                          className="secondary-action"
+                          type="button"
+                          onClick={() => loadSavedReport(selectedReport)}
+                        >
+                          <RefreshCcw size={16} aria-hidden="true" />
+                          <span>载入</span>
+                        </button>
+                        <button
+                          className="secondary-action"
+                          type="button"
+                          onClick={() => downloadMarkdownReport(selectedReport)}
+                        >
+                          <Download size={16} aria-hidden="true" />
+                          <span>下载</span>
+                        </button>
+                      </div>
+                    </article>
+                  )}
+                </div>
+              )}
+            </aside>
+          </div>
+        )}
+
         <section className="research-panel" aria-label="研究任务">
           <div className="field-group">
             <label htmlFor="topic">研究主题</label>
@@ -1038,7 +1226,30 @@ function App() {
             <section className="report-result" aria-label="研究报告">
               {researchReport && (
                 <>
-                  <h2>研究报告</h2>
+                  <div className="module-header">
+                    <h2>研究报告</h2>
+                    <div className="report-actions">
+                      <button
+                        className="icon-only-button secondary-icon"
+                        type="button"
+                        onClick={downloadCurrentReport}
+                        aria-label="下载研究报告"
+                        title="下载 Markdown"
+                      >
+                        <Download size={16} aria-hidden="true" />
+                      </button>
+                      <button
+                        className="icon-only-button secondary-icon"
+                        type="button"
+                        onClick={saveCurrentReportToLibrary}
+                        aria-label="保存到报告库"
+                        title="保存到报告库"
+                      >
+                        <Save size={16} aria-hidden="true" />
+                      </button>
+                    </div>
+                  </div>
+                  {reportLibraryNotice && <p className="success-text">{reportLibraryNotice}</p>}
                   <div className="markdown-preview report-preview">
                     <ReactMarkdown>{researchReport}</ReactMarkdown>
                   </div>
