@@ -4,8 +4,9 @@ import re
 from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.graph import END, START, StateGraph
 
-from app.model import init_configured_chat_model
+from app.model import extract_message_text, init_configured_chat_model
 from app.prompts import RESEARCH_REPORT_SYSTEM_PROMPT, RESEARCH_REPORT_USER_PROMPT
+from app.runtime_config import get_runtime_config, output_language_label, report_tone_label
 from app.schemas import ResearchFinding, ResearchSource
 
 
@@ -102,6 +103,7 @@ def collect_referenced_sources(
 
 
 async def write_report(state: ResearchReportState) -> ResearchReportState:
+    content_config = get_runtime_config().content
     sources = collect_unique_sources(state["findings"])
     sources_text, source_indices = format_sources(sources)
     findings_text = format_findings(state["findings"], source_indices)
@@ -109,7 +111,14 @@ async def write_report(state: ResearchReportState) -> ResearchReportState:
     model = init_configured_chat_model(temperature=0.2)
     response = await model.ainvoke(
         [
-            SystemMessage(content=RESEARCH_REPORT_SYSTEM_PROMPT),
+            SystemMessage(
+                content=RESEARCH_REPORT_SYSTEM_PROMPT.format(
+                    output_language_label=output_language_label(
+                        content_config.output_language
+                    ),
+                    report_tone_label=report_tone_label(content_config.report_tone),
+                )
+            ),
             HumanMessage(
                 content=RESEARCH_REPORT_USER_PROMPT.format(
                     brief=state["brief"],
@@ -119,7 +128,7 @@ async def write_report(state: ResearchReportState) -> ResearchReportState:
             ),
         ]
     )
-    report = strip_reference_section(str(response.content).strip())
+    report = strip_reference_section(extract_message_text(response.content).strip())
     references = collect_referenced_sources(report, sources, source_indices)
 
     return {

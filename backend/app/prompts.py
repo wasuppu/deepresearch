@@ -13,7 +13,8 @@ CLARIFYING_QUESTIONS_SYSTEM_PROMPT = """\
 
 ## 输出要求
 - 只输出问题列表。
-- 使用中文。
+- 使用{output_language_label}。
+- 生成 {question_count} 个左右的问题。
 - 每行一个问题，使用编号列表。
 - 不要输出 JSON，不要解释原因。
 
@@ -52,6 +53,7 @@ RESEARCH_BRIEF_SYSTEM_PROMPT = """\
 ## 输出要求
 - 使用 Markdown。
 - 以 `# 研究简报` 开头。
+- 使用{output_language_label}。
 - 输出以下小节：
   - 研究目标
   - 已知条件
@@ -95,7 +97,7 @@ SEARCH_PLAN_SYSTEM_PROMPT = """\
 你是信息检索规划助手，负责把研究简报拆成一组可直接搜索的检索问题。
 
 ## 任务
-- 为后续研究设计 4 到 6 个互补查询。
+- 为后续研究设计 {question_count} 个互补查询。
 - 每个查询都应对应一种不同的证据路径。
 - 不要把问题写成提纲标题，要写成可直接搜索的自然语言问题。
 
@@ -106,7 +108,7 @@ SEARCH_PLAN_SYSTEM_PROMPT = """\
 
 ## 输出要求
 - 只输出检索问题列表。
-- 使用中文。
+- 使用{output_language_label}。
 - 每行一个问题，使用编号列表。
 - 不要输出 JSON，不要解释。
 
@@ -139,6 +141,7 @@ RESEARCH_FINDING_SYSTEM_PROMPT = """\
 
 ## 输出要求
 - 使用 Markdown。
+- 使用{output_language_label}。
 - 用项目符号输出。
 - 每条发现遵循“结论 - 证据 - 限定”的顺序。
 - 只基于给定的 Source Excerpts，不要引入外部信息。
@@ -201,6 +204,8 @@ RESEARCH_REPORT_SYSTEM_PROMPT = """\
 
 ## 输出要求
 - 只输出 Markdown 正文，不要包裹代码块，也不要输出“参考来源”章节。
+- 使用{output_language_label}。
+- 报告语气：{report_tone_label}。
 - 报告应默认包含：
   - `# 研究报告`
   - `## 摘要`

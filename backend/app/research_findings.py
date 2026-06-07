@@ -3,9 +3,10 @@ from typing import TypedDict
 from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.graph import END, START, StateGraph
 
-from app.model import init_configured_chat_model
+from app.model import extract_message_text, init_configured_chat_model
 from app.prompts import RESEARCH_FINDING_SYSTEM_PROMPT, RESEARCH_FINDING_USER_PROMPT
 from app.research_sources import fetch_sources
+from app.runtime_config import get_runtime_config, output_language_label
 from app.schemas import ResearchFinding, ResearchSource
 
 
@@ -32,6 +33,8 @@ def format_source_excerpts(sources: list[ResearchSource]) -> str:
 
 
 async def generate_findings(state: ResearchFindingsState) -> ResearchFindingsState:
+    content_config = get_runtime_config().content
+    language_label = output_language_label(content_config.output_language)
     sources_state = await fetch_sources({"queries": state["queries"], "sources": []})
     model = init_configured_chat_model(temperature=0.1)
     findings: list[ResearchFinding] = []
@@ -46,7 +49,11 @@ async def generate_findings(state: ResearchFindingsState) -> ResearchFindingsSta
 
         response = await model.ainvoke(
             [
-                SystemMessage(content=RESEARCH_FINDING_SYSTEM_PROMPT),
+                SystemMessage(
+                    content=RESEARCH_FINDING_SYSTEM_PROMPT.format(
+                        output_language_label=language_label
+                    )
+                ),
                 HumanMessage(
                     content=RESEARCH_FINDING_USER_PROMPT.format(
                         query=query,
@@ -58,7 +65,7 @@ async def generate_findings(state: ResearchFindingsState) -> ResearchFindingsSta
         findings.append(
             ResearchFinding(
                 query=query,
-                finding=str(response.content).strip(),
+                finding=extract_message_text(response.content).strip(),
                 sources=query_sources,
             )
         )

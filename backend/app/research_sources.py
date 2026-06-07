@@ -3,16 +3,13 @@ from typing import Any, TypedDict
 from langgraph.graph import END, START, StateGraph
 from tavily import TavilyClient
 
+from app.duckduckgo_provider import search_duckduckgo
+from app.research_errors import SearchProviderError
 from app.schemas import ResearchSource
-from app.settings import settings
+from app.runtime_config import get_runtime_config
 from app.text_processing import clean_source_excerpt
 
-MAX_RESULTS_PER_QUERY = 3
 MAX_SOURCE_CONTENT_LENGTH = 4000
-
-
-class SearchProviderError(RuntimeError):
-    pass
 
 
 class ResearchSourcesState(TypedDict):
@@ -21,46 +18,71 @@ class ResearchSourcesState(TypedDict):
 
 
 def get_tavily_client() -> TavilyClient:
-    if settings.search_provider != "tavily":
-        raise SearchProviderError("当前只支持 Tavily 搜索供应商。")
+    search_config = get_runtime_config().search
 
-    if not settings.tavily_api_key:
-        raise SearchProviderError("缺少 TAVILY_API_KEY，请先在 .env 中配置搜索密钥。")
+    if search_config.provider != "tavily":
+        raise SearchProviderError("当前搜索提供商不是 Tavily。")
 
-    return TavilyClient(api_key=settings.tavily_api_key)
+    if not search_config.api_key:
+        raise SearchProviderError("缺少搜索 API Key，请先在设置面板中配置。")
+
+    return TavilyClient(api_key=search_config.api_key)
 
 
 def normalize_source(result: dict[str, Any], query: str) -> ResearchSource:
-    raw_content = result.get("raw_content") or result.get("content") or ""
+    raw_content = (
+        result.get("raw_content")
+        or result.get("content")
+        or result.get("body")
+        or result.get("snippet")
+        or ""
+    )
     excerpt = clean_source_excerpt(str(raw_content), max_length=MAX_SOURCE_CONTENT_LENGTH)
 
     return ResearchSource(
         title=str(result.get("title") or "Untitled"),
-        url=str(result.get("url") or ""),
+        url=str(result.get("url") or result.get("href") or ""),
         content=excerpt,
         query=query,
     )
 
 
 async def fetch_sources(state: ResearchSourcesState) -> ResearchSourcesState:
-    client = get_tavily_client()
+    search_config = get_runtime_config().search
     sources_by_url: dict[str, ResearchSource] = {}
 
-    for query in state["queries"]:
-        normalized_query = query.strip()
-        if not normalized_query:
-            continue
+    if search_config.provider == "tavily":
+        client = get_tavily_client()
+        for query in state["queries"]:
+            normalized_query = query.strip()
+            if not normalized_query:
+                continue
 
-        response = client.search(
-            normalized_query,
-            max_results=MAX_RESULTS_PER_QUERY,
-            include_raw_content=True,
-        )
+            response = client.search(
+                normalized_query,
+                max_results=search_config.source_limit_per_query,
+                include_raw_content=True,
+            )
+            for result in response.get("results", []):
+                source = normalize_source(result, normalized_query)
+                if source.url and source.url not in sources_by_url:
+                    sources_by_url[source.url] = source
+    elif search_config.provider == "duckduckgo":
+        for query in state["queries"]:
+            normalized_query = query.strip()
+            if not normalized_query:
+                continue
 
-        for result in response.get("results", []):
-            source = normalize_source(result, normalized_query)
-            if source.url and source.url not in sources_by_url:
-                sources_by_url[source.url] = source
+            results = search_duckduckgo(
+                normalized_query,
+                max_results=search_config.source_limit_per_query,
+            )
+            for result in results:
+                source = normalize_source(result, normalized_query)
+                if source.url and source.url not in sources_by_url:
+                    sources_by_url[source.url] = source
+    else:
+        raise SearchProviderError("当前只支持 Tavily 或 DuckDuckGo 搜索提供商。")
 
     return {"queries": state["queries"], "sources": list(sources_by_url.values())}
 

@@ -1,0 +1,2 @@
+class SearchProviderError(RuntimeError):
+    pass

@@ -3,8 +3,8 @@ from typing import TypedDict
 from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.graph import END, START, StateGraph
 
-from app.model import ModelClientError, init_configured_chat_model
-from app.settings import settings
+from app.model import ModelClientError, extract_message_text, init_configured_chat_model
+from app.runtime_config import get_runtime_config
 
 
 class ModelProbeState(TypedDict):
@@ -23,11 +23,12 @@ async def call_model(state: ModelProbeState) -> ModelProbeState:
             HumanMessage(content=state["message"]),
         ]
     )
+    config = get_runtime_config().model
 
     return {
         "message": state["message"],
-        "model": settings.llm_model,
-        "content": str(response.content),
+        "model": config.model,
+        "content": extract_message_text(response.content),
     }
 
 
@@ -37,4 +38,3 @@ builder.add_edge(START, "call_model")
 builder.add_edge("call_model", END)
 
 model_probe_graph = builder.compile()
-

@@ -1,6 +1,25 @@
-import { Activity, Check, PencilLine, Plus, RefreshCcw, Search, Trash2 } from "lucide-react";
+import {
+  Activity,
+  Check,
+  PencilLine,
+  Plus,
+  RefreshCcw,
+  RotateCcw,
+  Search,
+  Settings2,
+  Trash2,
+  X,
+} from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import {
+  cloneRunConfig,
+  loadRunConfig,
+  resetRunConfig,
+  saveRunConfig,
+  toApiRunConfig,
+  type RunConfiguration,
+} from "./runConfig";
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
@@ -52,6 +71,8 @@ type ResearchReportResponse = {
 
 function App() {
   const [topic, setTopic] = useState("");
+  const [runConfig, setRunConfig] = useState<RunConfiguration>(() => loadRunConfig());
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [health, setHealth] = useState<HealthState>({ status: "idle" });
   const [clarifyingQuestions, setClarifyingQuestions] = useState<string[]>([]);
   const [clarification, setClarification] = useState("");
@@ -75,6 +96,7 @@ function App() {
 
   const briefTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const searchQueryTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const apiRunConfig = toApiRunConfig(runConfig);
 
   async function checkHealth() {
     setHealth({ status: "loading" });
@@ -97,6 +119,72 @@ function App() {
   useEffect(() => {
     void checkHealth();
   }, []);
+
+  useEffect(() => {
+    saveRunConfig(runConfig);
+    document.documentElement.dataset.density = runConfig.ui.density;
+  }, [runConfig]);
+
+  useEffect(() => {
+    document.body.style.overflow = isSettingsOpen ? "hidden" : "";
+
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isSettingsOpen]);
+
+  function updateRunConfig(path: string, value: string | number) {
+    setRunConfig((current) => {
+      const next = cloneRunConfig(current);
+
+      switch (path) {
+        case "model.apiFormat":
+          next.model.apiFormat = value as RunConfiguration["model"]["apiFormat"];
+          break;
+        case "model.apiKey":
+          next.model.apiKey = String(value);
+          break;
+        case "model.baseUrl":
+          next.model.baseUrl = String(value);
+          break;
+        case "model.model":
+          next.model.model = String(value);
+          break;
+        case "search.provider":
+          next.search.provider = value as RunConfiguration["search"]["provider"];
+          if (next.search.provider === "duckduckgo") {
+            next.search.apiKey = "";
+          }
+          break;
+        case "search.apiKey":
+          next.search.apiKey = String(value);
+          break;
+        case "search.sourceLimitPerQuery":
+          next.search.sourceLimitPerQuery = Number(value);
+          break;
+        case "content.clarifyingQuestionCount":
+          next.content.clarifyingQuestionCount = Number(value);
+          break;
+        case "content.searchPlanQuestionCount":
+          next.content.searchPlanQuestionCount = Number(value);
+          break;
+        case "content.reportTone":
+          next.content.reportTone = value as RunConfiguration["content"]["reportTone"];
+          break;
+        case "content.outputLanguage":
+          next.content.outputLanguage =
+            value as RunConfiguration["content"]["outputLanguage"];
+          break;
+        case "ui.density":
+          next.ui.density = value as RunConfiguration["ui"]["density"];
+          break;
+        default:
+          break;
+      }
+
+      return next;
+    });
+  }
 
   async function createClarifyingQuestion() {
     const normalizedTopic = topic.trim();
@@ -127,7 +215,7 @@ function App() {
       const response = await fetch(`${apiBaseUrl}/research/clarifying-question`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic: normalizedTopic }),
+        body: JSON.stringify({ topic: normalizedTopic, run_config: apiRunConfig }),
       });
 
       if (!response.ok) {
@@ -183,6 +271,7 @@ function App() {
           topic: normalizedTopic,
           clarifying_questions: normalizedQuestions,
           clarification: normalizedClarification,
+          run_config: apiRunConfig,
         }),
       });
 
@@ -225,7 +314,7 @@ function App() {
       const response = await fetch(`${apiBaseUrl}/research/search-plan`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ brief: normalizedBrief }),
+        body: JSON.stringify({ brief: normalizedBrief, run_config: apiRunConfig }),
       });
 
       if (!response.ok) {
@@ -262,7 +351,7 @@ function App() {
       const response = await fetch(`${apiBaseUrl}/research/findings`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ queries: normalizedQueries }),
+        body: JSON.stringify({ queries: normalizedQueries, run_config: apiRunConfig }),
       });
 
       if (!response.ok) {
@@ -304,7 +393,11 @@ function App() {
       const response = await fetch(`${apiBaseUrl}/research/report`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ brief: normalizedBrief, findings: researchFindings }),
+        body: JSON.stringify({
+          brief: normalizedBrief,
+          findings: researchFindings,
+          run_config: apiRunConfig,
+        }),
       });
 
       if (!response.ok) {
@@ -406,11 +499,248 @@ function App() {
             <p className="eyebrow">Deep Research</p>
             <h1>研究工作台</h1>
           </div>
-          <button className="icon-button" type="button" onClick={checkHealth}>
-            <RefreshCcw size={18} aria-hidden="true" />
-            <span>刷新状态</span>
-          </button>
+          <div className="topbar-actions">
+            <button className="icon-button" type="button" onClick={() => setIsSettingsOpen(true)}>
+              <Settings2 size={18} aria-hidden="true" />
+              <span>设置</span>
+            </button>
+            <button className="icon-button" type="button" onClick={checkHealth}>
+              <RefreshCcw size={18} aria-hidden="true" />
+              <span>刷新状态</span>
+            </button>
+          </div>
         </header>
+
+        {isSettingsOpen && (
+          <div className="settings-backdrop" onClick={() => setIsSettingsOpen(false)}>
+            <aside
+              className="settings-drawer"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="settings-title"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="settings-header">
+                <div>
+                  <p className="eyebrow">运行配置</p>
+                  <h2 id="settings-title">设置</h2>
+                </div>
+                <button
+                  className="icon-only-button secondary-icon"
+                  type="button"
+                  onClick={() => setIsSettingsOpen(false)}
+                  aria-label="关闭设置"
+                  title="关闭设置"
+                >
+                  <X size={16} aria-hidden="true" />
+                </button>
+              </div>
+
+              <div className="settings-body">
+                <section className="settings-section">
+                  <div className="settings-section-title">
+                    <h3>配置</h3>
+                    <p>模型和搜索服务会在每次请求时按这里的配置运行。</p>
+                  </div>
+                  <div className="settings-grid">
+                    <label className="settings-field" htmlFor="model-api-format">
+                      <span>模型接口</span>
+                      <select
+                        id="model-api-format"
+                        value={runConfig.model.apiFormat}
+                        onChange={(event) =>
+                          updateRunConfig("model.apiFormat", event.target.value)
+                        }
+                      >
+                        <option value="openai">OpenAI 兼容</option>
+                        <option value="anthropic">Anthropic 兼容</option>
+                      </select>
+                    </label>
+
+                    <label className="settings-field" htmlFor="model-base-url">
+                      <span>模型 Base URL</span>
+                      <input
+                        id="model-base-url"
+                        type="text"
+                        value={runConfig.model.baseUrl}
+                        placeholder="填写服务根地址，不含 /chat/completions 或 /messages"
+                        onChange={(event) => updateRunConfig("model.baseUrl", event.target.value)}
+                      />
+                    </label>
+
+                    <label className="settings-field" htmlFor="model-api-key">
+                      <span>模型 API Key</span>
+                      <input
+                        id="model-api-key"
+                        type="password"
+                        value={runConfig.model.apiKey}
+                        onChange={(event) => updateRunConfig("model.apiKey", event.target.value)}
+                      />
+                    </label>
+
+                    <label className="settings-field" htmlFor="model-name">
+                      <span>模型名称</span>
+                      <input
+                        id="model-name"
+                        type="text"
+                        value={runConfig.model.model}
+                        placeholder="填写模型名称"
+                        onChange={(event) => updateRunConfig("model.model", event.target.value)}
+                      />
+                    </label>
+
+                    <label className="settings-field" htmlFor="search-provider">
+                      <span>搜索提供商</span>
+                      <select
+                        id="search-provider"
+                        value={runConfig.search.provider}
+                        onChange={(event) =>
+                          updateRunConfig("search.provider", event.target.value)
+                        }
+                      >
+                        <option value="tavily">Tavily</option>
+                        <option value="duckduckgo">DuckDuckGo</option>
+                      </select>
+                    </label>
+
+                    <label className="settings-field" htmlFor="search-api-key">
+                      <span>搜索 API Key</span>
+                      <input
+                        id="search-api-key"
+                        type="password"
+                        value={runConfig.search.apiKey}
+                        disabled={runConfig.search.provider === "duckduckgo"}
+                        placeholder={
+                          runConfig.search.provider === "duckduckgo" ? "DuckDuckGo 不需要密钥" : ""
+                        }
+                        onChange={(event) => updateRunConfig("search.apiKey", event.target.value)}
+                      />
+                    </label>
+
+                    <label className="settings-field" htmlFor="source-limit">
+                      <span>每题保留来源数</span>
+                      <input
+                        id="source-limit"
+                        type="number"
+                        min={1}
+                        max={10}
+                        value={runConfig.search.sourceLimitPerQuery}
+                        onChange={(event) =>
+                          updateRunConfig(
+                            "search.sourceLimitPerQuery",
+                            Number(event.target.value),
+                          )
+                        }
+                      />
+                    </label>
+                  </div>
+                </section>
+
+                <section className="settings-section">
+                  <div className="settings-section-title">
+                    <h3>内容</h3>
+                    <p>这些参数会直接影响澄清、检索和报告的产出形态。</p>
+                  </div>
+                  <div className="settings-grid">
+                    <label className="settings-field" htmlFor="clarifying-count">
+                      <span>澄清问题数</span>
+                      <input
+                        id="clarifying-count"
+                        type="number"
+                        min={3}
+                        max={10}
+                        value={runConfig.content.clarifyingQuestionCount}
+                        onChange={(event) =>
+                          updateRunConfig(
+                            "content.clarifyingQuestionCount",
+                            Number(event.target.value),
+                          )
+                        }
+                      />
+                    </label>
+
+                    <label className="settings-field" htmlFor="search-plan-count">
+                      <span>检索问题数</span>
+                      <input
+                        id="search-plan-count"
+                        type="number"
+                        min={3}
+                        max={10}
+                        value={runConfig.content.searchPlanQuestionCount}
+                        onChange={(event) =>
+                          updateRunConfig(
+                            "content.searchPlanQuestionCount",
+                            Number(event.target.value),
+                          )
+                        }
+                      />
+                    </label>
+
+                    <label className="settings-field" htmlFor="report-tone">
+                      <span>报告语气</span>
+                      <select
+                        id="report-tone"
+                        value={runConfig.content.reportTone}
+                        onChange={(event) =>
+                          updateRunConfig("content.reportTone", event.target.value)
+                        }
+                      >
+                        <option value="neutral">中性</option>
+                        <option value="concise">简洁</option>
+                        <option value="analytical">分析性</option>
+                      </select>
+                    </label>
+
+                    <label className="settings-field" htmlFor="output-language">
+                      <span>输出语言</span>
+                      <select
+                        id="output-language"
+                        value={runConfig.content.outputLanguage}
+                        onChange={(event) =>
+                          updateRunConfig("content.outputLanguage", event.target.value)
+                        }
+                      >
+                        <option value="zh-CN">中文</option>
+                        <option value="en">英文</option>
+                      </select>
+                    </label>
+                  </div>
+                </section>
+
+                <section className="settings-section">
+                  <div className="settings-section-title">
+                    <h3>界面</h3>
+                    <p>界面密度会影响卡片间距和信息压缩程度。</p>
+                  </div>
+                  <div className="settings-grid">
+                    <label className="settings-field" htmlFor="ui-density">
+                      <span>界面密度</span>
+                      <select
+                        id="ui-density"
+                        value={runConfig.ui.density}
+                        onChange={(event) => updateRunConfig("ui.density", event.target.value)}
+                      >
+                        <option value="comfortable">舒展</option>
+                        <option value="compact">紧凑</option>
+                      </select>
+                    </label>
+                  </div>
+                </section>
+              </div>
+
+              <div className="settings-footer">
+                <button
+                  className="secondary-action"
+                  type="button"
+                  onClick={() => setRunConfig(resetRunConfig())}
+                >
+                  <RotateCcw size={16} aria-hidden="true" />
+                  <span>恢复默认</span>
+                </button>
+              </div>
+            </aside>
+          </div>
+        )}
 
         <section className="research-panel" aria-label="研究任务">
           <div className="field-group">
