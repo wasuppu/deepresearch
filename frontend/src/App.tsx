@@ -86,6 +86,13 @@ type ResearchReportResponse = {
   references: ResearchSource[];
 };
 
+type ResearchProgressStep = {
+  id: string;
+  label: string;
+  description: string;
+  state: "pending" | "active" | "complete" | "error";
+};
+
 function App() {
   const [initialWorkspace] = useState(() => loadResearchWorkspaceState());
   const [topic, setTopic] = useState(initialWorkspace.topic);
@@ -644,6 +651,89 @@ function App() {
 
   const selectedReport =
     reportLibrary.find((report) => report.id === selectedReportId) ?? reportLibrary[0] ?? null;
+  const researchProgressSteps: ResearchProgressStep[] = [
+    {
+      id: "topic",
+      label: "研究主题",
+      description: "输入要研究的问题",
+      state: topic.trim() ? "complete" : "active",
+    },
+    {
+      id: "questions",
+      label: "澄清问题",
+      description: "明确研究边界",
+      state:
+        questionStatus === "error"
+          ? "error"
+          : questionStatus === "loading"
+            ? "active"
+            : clarifyingQuestions.length > 0
+              ? "complete"
+              : topic.trim()
+                ? "active"
+                : "pending",
+    },
+    {
+      id: "brief",
+      label: "研究简报",
+      description: "整理任务范围",
+      state:
+        briefStatus === "error"
+          ? "error"
+          : briefStatus === "loading"
+            ? "active"
+            : researchBrief.trim()
+              ? "complete"
+              : clarifyingQuestions.length > 0
+                ? "active"
+                : "pending",
+    },
+    {
+      id: "search-plan",
+      label: "检索问题",
+      description: "生成搜索计划",
+      state:
+        searchPlanStatus === "error"
+          ? "error"
+          : searchPlanStatus === "loading"
+            ? "active"
+            : searchQueries.length > 0
+              ? "complete"
+              : researchBrief.trim()
+                ? "active"
+                : "pending",
+    },
+    {
+      id: "findings",
+      label: "研究发现",
+      description: "检索并整理资料",
+      state:
+        findingsStatus === "error"
+          ? "error"
+          : findingsStatus === "loading"
+            ? "active"
+            : researchFindings.length > 0
+              ? "complete"
+              : searchQueries.length > 0
+                ? "active"
+                : "pending",
+    },
+    {
+      id: "report",
+      label: "研究报告",
+      description: "生成最终报告",
+      state:
+        reportStatus === "error"
+          ? "error"
+          : reportStatus === "loading"
+            ? "active"
+            : researchReport.trim()
+              ? "complete"
+              : researchFindings.length > 0
+                ? "active"
+                : "pending",
+    },
+  ];
 
   return (
     <main className="app-shell">
@@ -672,6 +762,8 @@ function App() {
             </button>
           </div>
         </header>
+
+        <ResearchProgress steps={researchProgressSteps} />
 
         {isSettingsOpen && (
           <div className="settings-backdrop" onClick={() => setIsSettingsOpen(false)}>
@@ -1303,6 +1395,42 @@ function HealthBadge({ state }: { state: HealthState }) {
   }
 
   return <span className="badge pending">未检查</span>;
+}
+
+function ResearchProgress({ steps }: { steps: ResearchProgressStep[] }) {
+  const completedCount = steps.filter((step) => step.state === "complete").length;
+  const activeStep = steps.find((step) => step.state === "active" || step.state === "error");
+  const progressPercent = Math.round((completedCount / steps.length) * 100);
+
+  return (
+    <section className="progress-panel" aria-label="研究流程进度">
+      <div className="progress-header">
+        <div>
+          <p className="eyebrow">研究流程</p>
+          <h2>{activeStep ? `当前：${activeStep.label}` : "流程完成"}</h2>
+        </div>
+        <span className="progress-count">
+          {completedCount}/{steps.length}
+        </span>
+      </div>
+      <div className="progress-track" aria-hidden="true">
+        <div className="progress-fill" style={{ width: `${progressPercent}%` }} />
+      </div>
+      <ol className="progress-steps">
+        {steps.map((step, index) => (
+          <li className={`progress-step ${step.state}`} key={step.id}>
+            <span className="progress-marker">
+              {step.state === "complete" ? <Check size={14} aria-hidden="true" /> : index + 1}
+            </span>
+            <span>
+              <strong>{step.label}</strong>
+              <small>{step.description}</small>
+            </span>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
 }
 
 export default App;
