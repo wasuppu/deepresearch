@@ -1,12 +1,15 @@
 {
   "name": "deepresearch-frontend",
+  "homepage": "https://wasuppu.github.io/deepresearch",
   "private": true,
   "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "tsc -b && vite build",
-    "preview": "vite preview --host 0.0.0.0"
+    "preview": "vite preview --host 0.0.0.0",
+    "predeploy": "bun run build",
+    "deploy": "gh-pages -d dist"
   },
   "dependencies": {
     "react": "^19.0.0",
@@ -15,9 +18,10 @@
     "react-markdown": "^10.1.0"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^4.3.4",
     "@types/react": "^19.0.1",
     "@types/react-dom": "^19.0.2",
+    "@vitejs/plugin-react": "^4.3.4",
+    "gh-pages": "^6.3.0",
     "typescript": "^5.7.2",
     "vite": "^6.0.5"
   }

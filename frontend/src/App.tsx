@@ -38,7 +38,10 @@ import {
   saveResearchWorkspaceState,
 } from "./workspaceState";
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000").replace(
+  /\/+$/,
+  "",
+);
 
 type HealthResponse = {
   service: string;
