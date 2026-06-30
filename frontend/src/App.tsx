@@ -654,12 +654,29 @@ function App() {
 
   const selectedReport =
     reportLibrary.find((report) => report.id === selectedReportId) ?? reportLibrary[0] ?? null;
+  const hasTopic = topic.trim().length > 0;
+  const hasClarifyingQuestions = clarifyingQuestions.length > 0;
+  const hasResearchBrief = researchBrief.trim().length > 0;
+  const hasSearchQueries = searchQueries.length > 0;
+  const hasResearchFindings = researchFindings.length > 0;
+  const hasResearchReport = researchReport.trim().length > 0;
+  const hasProgressAfterTopic =
+    hasClarifyingQuestions ||
+    hasResearchBrief ||
+    hasSearchQueries ||
+    hasResearchFindings ||
+    hasResearchReport;
+  const hasProgressAfterQuestions =
+    hasResearchBrief || hasSearchQueries || hasResearchFindings || hasResearchReport;
+  const hasProgressAfterBrief = hasSearchQueries || hasResearchFindings || hasResearchReport;
+  const hasProgressAfterSearchPlan = hasResearchFindings || hasResearchReport;
+
   const researchProgressSteps: ResearchProgressStep[] = [
     {
       id: "topic",
       label: "研究主题",
       description: "输入要研究的问题",
-      state: topic.trim() ? "complete" : "active",
+      state: hasTopic || hasProgressAfterTopic ? "complete" : "active",
     },
     {
       id: "questions",
@@ -670,9 +687,9 @@ function App() {
           ? "error"
           : questionStatus === "loading"
             ? "active"
-            : clarifyingQuestions.length > 0
+            : hasClarifyingQuestions || hasProgressAfterQuestions
               ? "complete"
-              : topic.trim()
+              : hasTopic
                 ? "active"
                 : "pending",
     },
@@ -685,9 +702,9 @@ function App() {
           ? "error"
           : briefStatus === "loading"
             ? "active"
-            : researchBrief.trim()
+            : hasResearchBrief || hasProgressAfterBrief
               ? "complete"
-              : clarifyingQuestions.length > 0
+              : hasClarifyingQuestions
                 ? "active"
                 : "pending",
     },
@@ -700,9 +717,9 @@ function App() {
           ? "error"
           : searchPlanStatus === "loading"
             ? "active"
-            : searchQueries.length > 0
+            : hasSearchQueries || hasProgressAfterSearchPlan
               ? "complete"
-              : researchBrief.trim()
+              : hasResearchBrief
                 ? "active"
                 : "pending",
     },
@@ -715,9 +732,9 @@ function App() {
           ? "error"
           : findingsStatus === "loading"
             ? "active"
-            : researchFindings.length > 0
+            : hasResearchFindings || hasResearchReport
               ? "complete"
-              : searchQueries.length > 0
+              : hasSearchQueries
                 ? "active"
                 : "pending",
     },
@@ -730,9 +747,9 @@ function App() {
           ? "error"
           : reportStatus === "loading"
             ? "active"
-            : researchReport.trim()
+            : hasResearchReport
               ? "complete"
-              : researchFindings.length > 0
+              : hasResearchFindings
                 ? "active"
                 : "pending",
     },
@@ -1098,7 +1115,6 @@ function App() {
               id="topic"
               value={topic}
               onChange={(event) => setTopic(event.target.value)}
-              placeholder="例如：2026 年中国具身智能创业公司的商业化路径"
               rows={5}
             />
           </div>
@@ -1129,7 +1145,6 @@ function App() {
                       id="clarification"
                       value={clarification}
                       onChange={(event) => setClarification(event.target.value)}
-                      placeholder="例如：重点关注中国市场，面向投资人，时间范围为 2024-2026 年。"
                       rows={4}
                     />
                   </div>
